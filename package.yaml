@@ -26,6 +26,8 @@ dependencies:
  - lens
  - random
  - mtl
+ - unicode-show
+ - ansi-terminal
 
 library:
   source-dirs: src
