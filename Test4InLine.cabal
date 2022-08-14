@@ -34,6 +34,8 @@ library
       base >=4.7 && <5
     , containers
     , lens
+    , mtl
+    , random
     , unicode-data
   default-language: Haskell2010
 
@@ -51,6 +53,8 @@ executable Test4InLine-exe
     , base >=4.7 && <5
     , containers
     , lens
+    , mtl
+    , random
     , unicode-data
   default-language: Haskell2010
 
@@ -67,5 +71,7 @@ test-suite Test4InLine-test
     , base >=4.7 && <5
     , containers
     , lens
+    , mtl
+    , random
     , unicode-data
   default-language: Haskell2010

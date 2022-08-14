@@ -1,6 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UnicodeSyntax #-}
-{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Four where
 
@@ -12,7 +11,10 @@ import Data.Maybe as Maybe ( Maybe(Just, Nothing) )
 import Data.Sequence (fromList)
 import qualified Data.Sequence as Seq
 import System.IO ()
+-- import System.Random
+-- import Control.Monad.State
 import Control.Lens ( (^?), element )
+
 
 --TYPES/DATA
 type Size = Int
@@ -20,6 +22,7 @@ data Disc = X | O | E deriving (Eq, Read, Show)
 type Row = [Disc]
 type Board = [[Disc]]
 data Maybe a = Nothing | Just a
+
 -- PURE FUNCTIONS
 createBoard :: Size -> Size -> Board
 createBoard m n = replicate m (replicate n E)
@@ -55,24 +58,25 @@ updateBoard p i (xs : xss) = case xs ^? element i of
 
 -- IMPURE FUNCTIONS
 initRow :: Row -> IO ()
+initRow []  = putStrLn "There are no rows inserted" 
 initRow [x] = putChar (showDisc $ head [x]) >> putStr "\n"
 initRow (x : xs) = putChar (showDisc $ head [x]) >> putChar ' ' >> initRow xs
 
 showBoard :: Board -> IO ()
 showBoard = mapM_ initRow
 
-playGame :: Char -> Int -> Int -> Board -> IO ()
-playGame p c r b = do
+playGame :: Char -> Board -> IO ()
+
+playGame p b = do
   putStr (showPlayerName p) >> putStr " choose input column: "
   i :: Int <- readLn
   let rb = reverse b
   let em = updateBoard p i rb
   if em == rb then (do
       putStrLn "Column is full, please choose another column"
-      playGame p c r rb) else showBoard $ reverse $ updateBoard p i rb
-  let rbr = updateBoard p i rb
-  let rbr2 = reverse rbr
-  playGame (switchPlayer p) c r rbr2
+      playGame p rb) else showBoard $ reverse $ updateBoard p i rb
+  let rbr2 = reverse $ updateBoard p i rb
+  playGame (switchPlayer p) rbr2
 
 main :: IO ()
 main = do
@@ -88,6 +92,10 @@ main = do
   r :: Int <- readLn
   -- create board
   showBoard $ createBoard c r
-  let b = createBoard c r
-  playGame 'X' c r b
+  playGame 'X' $ createBoard c r
   return ()
+
+
+  -- For the gameplay introduce a strategy Player vs computer
+  -- random numbers for computer
+  -- State Monad for keeping score

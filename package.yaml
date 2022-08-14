@@ -24,6 +24,8 @@ dependencies:
  - containers
  - unicode-data
  - lens
+ - random
+ - mtl
 
 library:
   source-dirs: src
