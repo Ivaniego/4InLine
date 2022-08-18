@@ -102,8 +102,10 @@ find _ [] = False
 find n (x:xs)
   | x == n = True
   | otherwise = find n xs
-  
+
 columnHasEmptySlot b i = find E $ map (!!i) b
+
+getColumn b i = map (!!i) b
 -- findEmptySlotInColumn b i = elemIndex E $ getSelectedColumn b i
 
 playGameP :: Int -> Int -> Disc -> Board -> IO ()
@@ -119,9 +121,8 @@ playGameP m r p b = do
         setSGR [Reset]
         let ri = reverse rb
         playGameP m r p ri)
-    if m == 1 
-      then playGameP m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb
-      else playGameC m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb
+    if winRowPlayerOne $ getColumn (updateBoard (showDisc p) i rb) i then putStr (showPlayerName p) >> putStr " has won the game! \n" else
+          if m == 1 then playGameP m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb else playGameC m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb
 
 playGameC :: Int -> Int -> Disc -> Board -> IO ()
 playGameC m r p b = do
