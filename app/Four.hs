@@ -117,9 +117,9 @@ playGameC m r p b = do
   let rbr2 = reverse $ updateBoard p number rb
   playGameP m r (switchPlayer p) rbr2
 
-winRowPlayerOne :: Board  -> Bool
-winRowPlayerOne [] = False
-winRowPlayerOne (xs : xss) = if  filter (== X)  (take 4 (x : xs))  == take 4 (x : xs) then True else winRowPlayerOne (tail r)
+-- winRowPlayerOne :: Board  -> Bool
+-- winRowPlayerOne [] = False
+-- winRowPlayerOne (xs : xss) = if  filter (== X)  (take 4 (x : xs))  == take 4 (x : xs) then True else winRowPlayerOne (tail r)
 
 main :: IO ()
 main = do
