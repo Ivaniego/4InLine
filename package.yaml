@@ -28,6 +28,11 @@ dependencies:
  - mtl
  - unicode-show
  - ansi-terminal
+ - text
+ - aeson
+ - bytestring
+ - unordered-containers
+ - template-haskell >= 2.11
 
 library:
   source-dirs: src
