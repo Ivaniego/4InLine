@@ -90,9 +90,9 @@ initRow (x : xs) = putChar (showDisc $ head [x]) >> putChar ' ' >> initRow xs
 -- initRow []  = putStrLn "There are no rows inserted"
 -- initRow [x] = setSGR [SetColor Foreground  Vivid Blue] >> putChar (showDisc $ head [x]) >> setSGR [Reset] >> putStr "\n"   
 -- initRow (x : xs) = putChar (showDisc $ head [x]) >> putChar ' ' >> initRow xs
-winRowPlayerOne :: Row -> Bool
-winRowPlayerOne [] = False
-winRowPlayerOne r = if  filter (== X) (take 4 r)  == take 4 r then True else winRowPlayerOne (tail r)
+winRowPlayer :: Disc -> Row -> Bool
+winRowPlayer p [] = False
+winRowPlayer p r = (filter (== p) (take 4 r)  == take 4 r) || winRowPlayer p (tail r)
 
 showBoard :: Board -> IO ()
 showBoard = mapM_ initRow
@@ -107,12 +107,14 @@ columnHasEmptySlot b i = find E $ map (!!i) b
 
 getColumn b i = map (!!i) b
 -- findEmptySlotInColumn b i = elemIndex E $ getSelectedColumn b i
+doesColumnExist c = find E c || find X c || find O c
 
 playGameP :: Int -> Int -> Disc -> Board -> IO ()
 playGameP m r p b = do
     putStr (showPlayerName p) >> putStr " choose input column: "
     i :: Int <- readLn
-    threadDelay 200000
+    if i >= length (head b) then putStrLn "Column does not exist" >> playGameP m r p b else
+      threadDelay 200000
     let rb = reverse b
     if columnHasEmptySlot rb i then showBoard $ reverse $ updateBoard (showDisc p) i rb
       else (do
@@ -121,7 +123,7 @@ playGameP m r p b = do
         setSGR [Reset]
         let ri = reverse rb
         playGameP m r p ri)
-    if winRowPlayerOne $ getColumn (updateBoard (showDisc p) i rb) i then putStr (showPlayerName p) >> putStr " has won the game! \n" else
+    if winRowPlayer p $ getColumn (updateBoard (showDisc p) i rb) i then putStr (showPlayerName p) >> putStr " has won the game! \n" else
           if m == 1 then playGameP m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb else playGameC m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb
 
 playGameC :: Int -> Int -> Disc -> Board -> IO ()
@@ -133,8 +135,6 @@ playGameC m r p b = do
   showBoard $ reverse $ updateBoard (showDisc p) number rb
   let rbr2 = reverse $ updateBoard (showDisc p) number rb
   playGameP m r (switchPlayer p) rbr2
-
-
 
 main :: IO ()
 main = do
@@ -150,8 +150,7 @@ main = do
   putStrLn "1 -> Player vs Player"
   putStrLn "2 -> Player vs Computer"
   m <- getUserInput
-  if m <= 0  then putStrLn "No negative numbers allowed"
-  else putStrLn "Choose a board size column: "
+  putStrLn "Choose a board size column: "
   putStrLn "Columns: "
   c <- getUserInput
   if c <= 0  then putStrLn "No negative numbers allowed"
@@ -168,9 +167,9 @@ getUserInput = do
   line <- getLine
   case readMaybe line of
     Maybe.Just x -> return x
-    Maybe.Nothing -> putStrLn "You must enter a number. Please try again." >> getUserInput
+    Maybe.Nothing -> putStrLn "You must enter a valid number. Please try again." >> getUserInput
 
-    -- https://stackoverflow.com/questions/15542328/checking-to-see-if-a-list-is-ordered-consecutively
+-- https://stackoverflow.com/questions/15542328/checking-to-see-if-a-list-is-ordered-consecutively
 
 
   --TODO:
@@ -364,5 +363,4 @@ getUserInput = do
 
 -- winCollumnBoardPlayerTwo :: Collumn-> Bool
 -- winCollumnBoardPlayerTwo b = if filter (== True)( map (winCollumnPlayerTwo) b) == [] then False else True 
-
--- -- Here we don't need the new column function we only need to use, the output of the column function as the input for our functions 
+-- Here we don't need the new column function we only need to use, the output of the column function as the input for our functions
