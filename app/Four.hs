@@ -74,8 +74,8 @@ updateBoard p i [] = []
 updateBoard p i (xs : xss) = case xs ^? element i of
     Maybe.Nothing -> xs : xss
     Maybe.Just E  -> playerInput p i xs : xss
-    Maybe.Just X  -> xs : updateBoard 'X' i xss
-    Maybe.Just O  -> xs : updateBoard 'O' i xss
+    Maybe.Just X  -> xs : updateBoard p i xss
+    Maybe.Just O  -> xs : updateBoard p i xss
 
 -- IMPURE FUNCTIONS
 randomRsIO :: (Random a) => (a, a) -> IO [a]
@@ -90,9 +90,17 @@ initRow (x : xs) = putChar (showDisc $ head [x]) >> putChar ' ' >> initRow xs
 -- initRow []  = putStrLn "There are no rows inserted"
 -- initRow [x] = setSGR [SetColor Foreground  Vivid Blue] >> putChar (showDisc $ head [x]) >> setSGR [Reset] >> putStr "\n"   
 -- initRow (x : xs) = putChar (showDisc $ head [x]) >> putChar ' ' >> initRow xs
-winRowPlayer :: Disc -> Row -> Bool
-winRowPlayer p [] = False
-winRowPlayer p r = (filter (== p) (take 4 r)  == take 4 r) || winRowPlayer p (tail r)
+winColumnPlayer :: Disc -> Row -> Bool
+winColumnPlayer p [] = False
+winColumnPlayer p r = (filter (== p) (take 4 r)  == take 4 r) || winColumnPlayer p (tail r)
+
+winRow2Player :: Disc -> Row -> Bool
+winRow2Player p [] = False
+winRow2Player p r = (filter (== p) (take 4 r)  == take 4 r) || winRow2Player p (tail r)
+
+-- winRowPlayer :: Disc -> Row -> Bool
+-- winRowPlayer [] = False
+-- winRowPlayer p = (filter (== p) (take 4 r)  == take 4 r) || winRowPlayer p (tail r)
 
 showBoard :: Board -> IO ()
 showBoard = mapM_ initRow
@@ -123,8 +131,11 @@ playGameP m r p b = do
         setSGR [Reset]
         let ri = reverse rb
         playGameP m r p ri)
-    if winRowPlayer p $ getColumn (updateBoard (showDisc p) i rb) i then putStr (showPlayerName p) >> putStr " has won the game! \n" else
-          if m == 1 then playGameP m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb else playGameC m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb
+    if winColumnPlayer  p $ getColumn (updateBoard (showDisc p) i rb) i
+      then putStr (showPlayerName p) >> putStr " has won the game on Column! \n"
+      else if winRow2Player p (concat $ updateBoard (showDisc p) i rb)
+        then putStr (showPlayerName p) >> putStr " has won the game on Row! \n"
+        else if m == 1 then playGameP m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb else playGameC m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb
 
 playGameC :: Int -> Int -> Disc -> Board -> IO ()
 playGameC m r p b = do
