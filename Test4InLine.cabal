@@ -50,6 +50,7 @@ executable Test4InLine-exe
   main-is: Main.hs
   other-modules:
       Four
+      Functions
       Paths_Test4InLine
   hs-source-dirs:
       app
