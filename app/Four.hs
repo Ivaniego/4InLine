@@ -22,8 +22,6 @@ import Control.Concurrent ( threadDelay )
 import System.Console.ANSI ( setCursorPosition, clearScreen, setSGR, SGR (SetColor, Reset), ConsoleLayer (Background, Foreground), ColorIntensity (Vivid), Color (Blue, Red) )
 import Text.Read (readMaybe)
 
-
-
 --TYPES/DATA
 type Size = Int
 data Disc = X | O | E deriving (Eq, Read, Show)
@@ -48,10 +46,11 @@ switchPlayer :: Disc -> Disc
 switchPlayer X = O
 switchPlayer O = X
 
-showDisc :: Disc -> Char
-showDisc E = 'E'
-showDisc X = 'X'
-showDisc O = 'O'
+
+showDisc :: Disc -> IO ()
+showDisc E = putChar 'E'
+showDisc X = setSGR [SetColor Foreground  Vivid Blue] >> putChar 'X' >> setSGR [Reset]
+showDisc O = setSGR [SetColor Foreground  Vivid Red] >> putChar 'O' >> setSGR [Reset]
 -- showDisc :: Disc -> Char
 -- showDisc E =  '⚪'
 -- showDisc X =  '🔴'
@@ -65,15 +64,18 @@ showPlayerName :: Disc -> String
 showPlayerName X = "Player 1"
 showPlayerName O = "Player 2"
 
-playerInput :: Char -> Int -> Row -> [Disc]
-playerInput p n r = toList $ Seq.update n (toDisc p) (Seq.fromList r)
+playerOneInput :: IO () -> Int -> Row -> [Disc]
+playerOneInput p n r = toList $ Seq.update n X (Seq.fromList r)
+
+playerTwoInput :: IO () -> Int -> Row -> [Disc]
+playerTwoInput p n r = toList $ Seq.update n O (Seq.fromList r)
 
 -- takes a reverse board
-updateBoard :: Char -> Int -> Board -> Board
+updateBoard :: Disc -> Int -> Board -> Board
 updateBoard p i [] = []
 updateBoard p i (xs : xss) = case xs ^? element i of
     Maybe.Nothing -> xs : xss
-    Maybe.Just E  -> playerInput p i xs : xss
+    Maybe.Just E  -> if p == X then playerOneInput (showDisc p) i xs : xss else playerTwoInput (showDisc p) i xs : xss
     Maybe.Just X  -> xs : updateBoard p i xss
     Maybe.Just O  -> xs : updateBoard p i xss
 
@@ -83,8 +85,8 @@ randomRsIO range = getStdGen >>= return . (randomRs range)
 
 initRow :: Row -> IO ()
 initRow []  = putStrLn "There are no rows inserted"
-initRow [x] = putChar (showDisc $ head [x]) >> putStr "\n"
-initRow (x : xs) = putChar (showDisc $ head [x]) >> putChar ' ' >> initRow xs
+initRow [x] = (showDisc $ head [x]) >> putStr "\n"
+initRow (x : xs) = (showDisc $ head [x]) >> putChar ' ' >> initRow xs
 
 -- initRow :: Row -> IO ()
 -- initRow []  = putStrLn "There are no rows inserted"
@@ -105,6 +107,14 @@ winRow2Player p r = (filter (== p) (take 4 r)  == take 4 r) || winRow2Player p (
 showBoard :: Board -> IO ()
 showBoard = mapM_ initRow
 
+isDraw :: Board -> Bool
+isDraw [] = True
+isDraw (b:bs) =  if filterE b  /= [] then False else isDraw bs
+
+
+filterE :: [Disc] -> [Disc]
+filterE y = filter (== E) y
+
 find :: Eq t => t -> [t] -> Bool
 find _ [] = False
 find n (x:xs)
@@ -124,18 +134,20 @@ playGameP m r p b = do
     if i >= length (head b) then putStrLn "Column does not exist" >> playGameP m r p b else
       threadDelay 200000
     let rb = reverse b
-    if columnHasEmptySlot rb i then showBoard $ reverse $ updateBoard (showDisc p) i rb
+    if columnHasEmptySlot rb i then showBoard $ reverse $ updateBoard p i rb
       else (do
         setSGR [SetColor Foreground Vivid Red]
         putStrLn "Column is full, please choose another column"
         setSGR [Reset]
         let ri = reverse rb
         playGameP m r p ri)
-    if winColumnPlayer  p $ getColumn (updateBoard (showDisc p) i rb) i
+    if winColumnPlayer  p $ getColumn (updateBoard p i rb) i
       then putStr (showPlayerName p) >> putStr " has won the game on Column! \n"
-      else if winRow2Player p (concat $ updateBoard (showDisc p) i rb)
+      else if winRow2Player p (concat $ updateBoard p i rb)
         then putStr (showPlayerName p) >> putStr " has won the game on Row! \n"
-        else if m == 1 then playGameP m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb else playGameC m r (switchPlayer p) $ reverse $ updateBoard (showDisc p) i rb
+        else if isDraw (updateBoard  p i rb)
+          then putStr "The game is a draw"
+        else if m == 1 then playGameP m r (switchPlayer p) $ reverse $ updateBoard p i rb else playGameC m r (switchPlayer p) $ reverse $ updateBoard ( p) i rb
 
 playGameC :: Int -> Int -> Disc -> Board -> IO ()
 playGameC m r p b = do
@@ -143,8 +155,8 @@ playGameC m r p b = do
   number <- randomRIO (0,r-1) :: IO Int
   putStr "Computer made move in column:" >> print number
   let rb = reverse b
-  showBoard $ reverse $ updateBoard (showDisc p) number rb
-  let rbr2 = reverse $ updateBoard (showDisc p) number rb
+  showBoard $ reverse $ updateBoard p number rb
+  let rbr2 = reverse $ updateBoard p number rb
   playGameP m r (switchPlayer p) rbr2
 
 main :: IO ()
@@ -164,8 +176,7 @@ main = do
   putStrLn "Choose a board size column: "
   putStrLn "Columns: "
   c <- getUserInput
-  if c <= 0  then putStrLn "No negative numbers allowed"
-  else putStrLn "Rows: "
+  putStrLn "Rows: "
   r <- getUserInput
   if r <= 0  then putStrLn "No negative numbers allowed"
   -- create board
