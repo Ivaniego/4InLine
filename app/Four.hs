@@ -2,6 +2,8 @@
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NumDecimals #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use if" #-}
 
 module Four where
 
@@ -205,17 +207,30 @@ columnIsValid p b = do
     then return i
     else putStrLn "You must enter a valid number. Please try again. \n" >> columnIsValid p b
 
-
-
 --GAME PLAY --
 ----------------------------
+
+checkWinner :: Int -> Int -> Disc -> Int -> Board -> IO ()
+checkWinner m r p i rb = do
+  case winOnStraightLine  p $ getColumn (updateBoard p i rb) i of
+    True -> putStr (showPlayerName p) >> putStr " has won the game on Column! \n"
+    False -> case winOnStraightLine p (concat $ updateBoard p i rb) of
+      True -> putStr (showPlayerName p) >> putStr " has won the game on Row! \n"
+      False -> case winDiagonalsPlayerOne (updateBoard p i rb) of
+        True -> putStr (showPlayerName p) >> putStr " has won the game Diagonally! \n"
+        False -> case winDiagonalsPlayerTwo (updateBoard p i rb) of
+          True -> putStr (showPlayerName p) >> putStr " has won the game Diagonally! \n"
+          False -> case isDraw (updateBoard  p i rb) of
+            True -> putStr "The game is a draw"
+            False -> case m == 1 of 
+              True -> playGameP m r (switchPlayer p) $ reverse $ updateBoard p i rb
+              False -> playGameC m r (switchPlayer p) $ reverse $ updateBoard p i rb
 
 playGameP :: Int -> Int -> Disc -> Board -> IO ()
 playGameP m r p b = do
     i <- columnIsValid p b
     threadDelay 2.0e5
     let rb = reverse b
-
     if columnHasEmptySlot rb i then showBoard $ reverse $ updateBoard p i rb
       else (do
         setSGR [SetColor Foreground Vivid Red]
@@ -223,19 +238,8 @@ playGameP m r p b = do
         setSGR [Reset]
         let ri = reverse rb
         if p == X then playGameP m r p ri else playGameC m r p ri )
+    checkWinner m r p i rb
 
-    if winOnStraightLine  p $ getColumn (updateBoard p i rb) i
-      then putStr (showPlayerName p) >> putStr " has won the game on Column! \n"
-      else if winOnStraightLine p (concat $ updateBoard p i rb)
-        then putStr (showPlayerName p) >> putStr " has won the game on Row! \n"
-        else if winDiagonalsPlayerOne (updateBoard p i rb)
-          then putStr (showPlayerName p) >> putStr " has won the game Diagonally! \n"
-          else if winDiagonalsPlayerTwo (updateBoard p i rb)
-            then putStr (showPlayerName p) >> putStr " has won the game Diagonally! \n"
-        else if isDraw (updateBoard  p i rb)
-          then putStr "The game is a draw"
-        else if m == 1 then playGameP m r (switchPlayer p) $ reverse $ updateBoard p i rb
-        else playGameC m r (switchPlayer p) $ reverse $ updateBoard ( p) i rb
 
 playGameC :: Int -> Int -> Disc -> Board -> IO ()
 playGameC m r p b = do
