@@ -423,3 +423,57 @@ module Functions where
 
 -- winDiagonalsPlayerTwo :: Board -> Bool
 -- winDiagonalsPlayerTwo x = winRowBoardPlayerTwo ( diagonals x) 
+
+
+-- Extra function
+
+-- Extra functions
+    -- i= always 0 column and then +1 for next column
+-- r= length head of board -> total amount of columns to know how many times to 'iterate'
+-- getColumns :: Board -> Int -> Int -> Columns
+-- getColumns (xs :xss) r i = if r > 0 
+--   then map (!!i) (xs :xss) : getColumns (xs : xss) (r -1) (i+1) 
+--   else []
+
+-- randomElement :: RandomGen g => g -> [a] -> IO a
+-- randomElement rnd list = do
+--   gen <- getStdGen
+--   let (i, _) = randomR (0, length list - 1) gen
+--   return $ list !! i
+
+--   replaceNth _ _ [] = []
+-- replaceNth n newVal (xs:xss)
+--   | n == 0 = newVal:xss
+--   | otherwise = xs:replaceNth (n-1) newVal xss
+  -- doesColumnExist :: [Disc] -> Bool
+  -- doesColumnExist c = find E c || find X c || find O c
+  
+  -- getMultipleColumns :: Board -> Int -> [[b]]
+  -- getMultipleColumns :: [[b]] -> Int -> Int -> [[b]]
+  -- getMultipleColumns (xs : xss) j i = case j <= i of
+  --   True -> getColumn (xs : xss) j i : []
+  --   False -> (xs : xss)
+  
+    -- getMultipleColumns :: Board -> Int -> [[b]]
+  -- getMultipleColumns :: [[b]] -> Int -> Int -> [[b]]
+  -- getMultipleColumns (xs : xss) j i = case j <= i of
+  --   True -> getColumn (xs : xss) j i : getMultipleColumns (xs : xss) (j + 1) i
+  --   False -> (xs : xss)
+
+-- pickOri :: RandomGen g => g -> [a] -> (a, g)
+-- pickOri rnd xs =
+--   let len = length xs - 1
+--       (i, g) = randomR (0, len) rnd
+--   in (xs !! i, g)
+-- randomTest :: IO ()
+-- randomTest = do
+--   let stdGen = mkStdGen 2021
+--   putStrLn $ fst $ runRand (fromList [("hello", 0.5), ("world", 0.1)]) stdGen
+
+-- findEmptySlotInColumn b i = elemIndex E $ getSelectedColumn b i
+
+
+-- columnHasEmptySlotM :: [[Disc]] -> Int -> Int -> [[Int]]
+-- columnHasEmptySlotM b i = if i < length b then case columnHasEmptySlot b i of
+--   True -> [i] : columnHasEmptySlotM b (i + 1) ++ []
+--   False -> columnHasEmptySlotM b (i + 1) ++ [] else []

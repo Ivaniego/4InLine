@@ -7,6 +7,7 @@
 
 module Four where
 
+
 --                             LIBS                            --
 ------------------------------------------------------------------------
 import Data.Char ()
@@ -29,10 +30,6 @@ import Text.Read (readMaybe)
 import Control.Monad.Trans ( MonadTrans(lift) )
 
 
-
-
-
-
 --                             TYPES/DATA                            --
 ------------------------------------------------------------------------
 
@@ -48,8 +45,6 @@ data Game = Game
   , _gPlayerOneBalance :: Double
   , _gPlayerTwoBalance :: Double
   } deriving Show
-
-
 
 
 --                            PURE FUNCTIONS                         --
@@ -97,45 +92,19 @@ find n (x:xs)
   | x == n = True
   | otherwise = find n xs
 
+getAvailableColumnIndexes :: [[Disc]] -> Int -> [[Int]]
+getAvailableColumnIndexes (xs : xss) ci =
+  if ci < length xs then
+    case (columnHasEmptySlot (xs : xss) ci) of
+      True -> [ci] : getAvailableColumnIndexes (xs : xss) (ci + 1)
+      False -> getAvailableColumnIndexes (xs : xss) (ci + 1) else []
+
 columnHasEmptySlot :: [[Disc]] -> Int -> Bool
 columnHasEmptySlot b i = find E $ map (!!i) b
 
--- getEmptySlots :: Board -> [Int]
--- getEmptySlots b = 
-
 getColumn :: [[b]] -> Int -> [b]
-getColumn b i = map (!!i) b  
+getColumn b i = map (!!i) b
 
-getColumnM :: [[b]] -> Int -> Int -> [[b]]
-getColumnM (xs :xss) j i = if j <= i then map (!!i) (xs:xss) : getColumnM (xs:xss) (j+1) i else [xs]
-
-getColumns :: Board -> Int -> Int -> Columns
-getColumns (xs :xss) r i = if r > 0 then map (!!i) (xs :xss) : getColumns (xs : xss) (r -1) (i+1) else []
-
--- replaceNth :: Int -> a -> Board -> [a]
--- replaceNth _ _ [] = []
--- replaceNth n newVal (xs:xss)
---   | n == 0 = newVal:xss
---   | otherwise = xs:replaceNth (n-1) newVal xss
-
--- getColumn2 (xs : xss) i = map (!!i) (head xs)
-
--- concatColumns = 
-
-doesColumnExist :: [Disc] -> Bool
-doesColumnExist c = find E c || find X c || find O c
-
--- getMultipleColumns :: Board -> Int -> [[b]]
--- getMultipleColumns :: [[b]] -> Int -> Int -> [[b]]
--- getMultipleColumns (xs : xss) j i = case j <= i of
---   True -> getColumn (xs : xss) j i : []
---   False -> (xs : xss)
-
-  -- getMultipleColumns :: Board -> Int -> [[b]]
--- getMultipleColumns :: [[b]] -> Int -> Int -> [[b]]
--- getMultipleColumns (xs : xss) j i = case j <= i of
---   True -> getColumn (xs : xss) j i : getMultipleColumns (xs : xss) (j + 1) i
---   False -> (xs : xss)
 
 --                            IO FUNCTIONS                          --
 ------------------------------------------------------------------------
@@ -182,8 +151,6 @@ leftdiagonals  x = zipWith (++) (map ( (: []). head) x ++ repeat [])([]:leftdiag
 rightdiagonals :: Board -> Board
 rightdiagonals x = leftdiagonals (reverse x)
 
---- this is the function to get all the other diagonals 
-
 moreThanThree :: [[a]] -> [[a]]
 moreThanThree x = filter (\x-> (length x) >3) x
 
@@ -193,7 +160,6 @@ diagonals x = moreThanThree (leftdiagonals x ++ rightdiagonals x)
 winDiagonalsPlayerOne :: Board -> Bool
 winDiagonalsPlayerOne b = winRowBoardPlayerOne ( diagonals b)
 
-
 winRowBoardPlayerOne :: Board -> Bool
 winRowBoardPlayerOne b = if filter (== True)( map (winRowPlayerOne) b) == [] then False else True
 
@@ -201,7 +167,6 @@ winRowPlayerOne :: Row -> Bool
 winRowPlayerOne [] = False
 winRowPlayerOne [x,y,z] = False
 winRowPlayerOne r = if  filter (== X) (take 4 r)  == take 4 r then True else winRowPlayerOne (tail r)
-
 
 winRowBoardPlayerTwo :: Board -> Bool
 winRowBoardPlayerTwo b = if filter (== True)( map (winRowPlayerTwo) b) == [] then False else True
@@ -235,11 +200,12 @@ columnIsValid p b = do
     then return i
     else putStrLn "You must enter a valid number. Please try again. \n" >> columnIsValid p b
 
---GAME PLAY --
+
+    --GAME PLAY --
 ----------------------------
 
-checkWinner :: Int -> Int -> Disc -> Int -> Board -> IO ()
-checkWinner m r p i rb = do
+checkWinner :: Int -> Int -> Int -> Disc -> Int -> Board -> IO ()
+checkWinner m c r p i rb = do
   case winOnStraightLine  p $ getColumn (updateBoard p i rb) i of
     True -> putStr (showPlayerName p) >> putStr " has won the game on Column! \n"
     False -> case winOnStraightLine p (concat $ updateBoard p i rb) of
@@ -250,12 +216,12 @@ checkWinner m r p i rb = do
           True -> putStr (showPlayerName p) >> putStr " has won the game Diagonally! \n"
           False -> case isDraw (updateBoard  p i rb) of
             True -> putStr "The game is a draw"
-            False -> case m == 1 of 
-              True -> playGameP m r (switchPlayer p) $ reverse $ updateBoard p i rb
-              False -> playGameC m r (switchPlayer p) $ reverse $ updateBoard p i rb
+            False -> case m == 1 of
+              True -> playGameP m c r (switchPlayer p) $ reverse $ updateBoard p i rb
+              False -> playGameC m c r (switchPlayer p) $ reverse $ updateBoard p i rb
 
-playGameP :: Int -> Int -> Disc -> Board -> IO ()
-playGameP m r p b = do
+playGameP :: Int -> Int -> Int -> Disc -> Board -> IO ()
+playGameP m c r p b = do
     i <- columnIsValid p b
     threadDelay 2.0e5
     let rb = reverse b
@@ -265,39 +231,35 @@ playGameP m r p b = do
         putStrLn "Column is full, please choose another column"
         setSGR [Reset]
         let ri = reverse rb
-        if p == X then playGameP m r p ri else playGameC m r p ri )
-    checkWinner m r p i rb
+        if p == X then playGameP m c r p ri else playGameC m c r p ri )
+    checkWinner m c r p i rb
 
 spacer :: IO ()
 spacer = do
   putStrLn " "
 
--- getAvailableColumns :: Board -> [Int]
--- getAvailableColumns b =  
---   -- check in board for each column: create a list of elements where index is Nth and combine
---   -- them in a list. Then find the indexes of the elements lists where there is an E left.
-
-playGameC :: Int -> Int -> Disc -> Board -> IO ()
-playGameC m r p b = do
+playGameC :: Int -> Int -> Int -> Disc -> Board -> IO ()
+playGameC m c r p b = do
   threadDelay 1000000
-  -- getAvailableColumns
-  number <- computerMove [0,1,2,3,4,5,6]
+  let availableIndexes = concat $ getAvailableColumnIndexes b 0
+  print availableIndexes
+  number <- computerMove availableIndexes
   putStr "Computer made move in column:" >> print number
   let rb = reverse b
   showBoard $ reverse $ updateBoard p number rb
   let rbr2 = reverse $ updateBoard p number rb
-  playGameP m r (switchPlayer p) rbr2
-
--- computerMove :: Int -> IO Int
--- computerMove r = randomRIO (0,r-1)
+  playGameP m c r (switchPlayer p) rbr2
 
 computerMove :: [a] -> IO a
 computerMove l = do
   gen <- newStdGen
   randomElement gen l
 
-test :: Int -> IO [Int]
-test n = sequence $ replicate n $ randomRIO (1,6::Int)
+randomElement :: RandomGen g => g -> [a] -> IO a
+randomElement rnd list = do
+    gen <- getStdGen
+    let (i, _) = randomR (0, length list - 1) gen
+    return $ list !! i
 
 initializeGame :: IO ()
 initializeGame = do
@@ -309,81 +271,12 @@ initializeGame = do
   putStrLn "WELCOME TO 4 IN A ROW"
   setSGR [Reset]
   m <- getUserInput $ "Choose a game mode: \n"++ "1 -> Player vs Player \n" ++ "2 -> Player vs Computer"
-  c <- getUserInput $ "Choose a board size column: \n" ++ "Columns: "
-  r <- getUserInput "Rows: "
+  c <- getUserInput $ "Choose a board size: \n" ++ "Rows: "
+  r <- getUserInput "Columns: "
   showBoard $ createBoard c r
-  playGameP m r X $ createBoard c r
+  playGameP m c r X $ createBoard c r
 
 main :: IO ()
 main = do
-  -- gen <- newStdGen
-  -- let o = pickOri gen [1,2,3]
-  
-  initializeGame 
+  initializeGame
   return ()
-  
-
-randomElement :: RandomGen g => g -> [a] -> IO a
-randomElement rnd list = do
-  gen <- getStdGen
-  let (i, _) = randomR (0, length list - 1) gen
-  return $ list !! i
- 
-
--- pickOri :: RandomGen g => g -> [a] -> (a, g)
--- pickOri rnd xs =
---   let len = length xs - 1
---       (i, g) = randomR (0, len) rnd
---   in (xs !! i, g)
--- randomTest :: IO ()
--- randomTest = do
---   let stdGen = mkStdGen 2021
---   putStrLn $ fst $ runRand (fromList [("hello", 0.5), ("world", 0.1)]) stdGen
-
--- findEmptySlotInColumn b i = elemIndex E $ getSelectedColumn b i
-
---A
---Rafael
--- state monad $ transformer
--- win diagonal more general for both players
-
---Ivannick
--- Computer knows column full
--- Ansi moving cursor / the number they can pick seperate with line
-
--- Minimal size 4 x 4 -- Standard board vs custom
--- spacing between columns and lines
---font size for win
--- imrpove text
-
---B
---Ivannick
--- Computer knows column full
--- Ansi moving cursor / the number they can pick seperate with line
--- Minimal size 4 x 4 -- Standard board vs custom
-
---Rafael
--- spacing between columns and lines
---font size for win
--- imrpove text
-
---Rafael/Ivannick
--- state monad $ transformer
--- win diagonal more general for both players
-
---C
---Rafael
--- state monad $ transformer
--- win diagonal more general for both players
-
---Ivannick
--- Computer knows column full
--- Ansi moving cursor / the number they can pick seperate with line
-
--- Up for grabs
--- Minimal size 4 x 4 -- Standard board vs custom
--- spacing between columns and lines
---font size for win
-
-
-
