@@ -16,7 +16,7 @@ import Data.Maybe as Maybe ( Maybe(Just, Nothing), fromJust )
 import Data.Sequence (fromList)
 import qualified Data.Sequence as Seq
 import System.IO (hSetBuffering, stdin, BufferMode (NoBuffering), hSetEncoding, utf8, stdout)
-import System.Random (getStdGen, Random (randomRs), randomRIO, randomIO)
+import System.Random (getStdGen, newStdGen, Random (randomRs, randomR), randomRIO, randomIO, mkStdGen, RandomGen, StdGen)
 import Control.Monad.State (lift, StateT)
 import Control.Lens ( (^?), element, (^.))
 import Control.Lens.Tuple ()
@@ -25,6 +25,10 @@ import Text.Show.Unicode ()
 import Control.Concurrent ( threadDelay )
 import System.Console.ANSI ( setCursorPosition, clearScreen, setSGR, SGR (SetColor, Reset), ConsoleLayer (Background, Foreground), ColorIntensity (Vivid, Dull), Color (Blue, Red, Yellow) )
 import Text.Read (readMaybe)
+-- import Data.Random.Extras
+import Control.Monad.Trans ( MonadTrans(lift) )
+
+
 
 
 
@@ -36,6 +40,7 @@ type Size = Int
 data Disc = X | O | E deriving (Eq, Read, Show)
 type Row = [Disc]
 type Board = [[Disc]]
+type Columns = [[Disc]]
 data Maybe a = Nothing | Just a
 data Game = Game
   { _gPlayerScore   :: Int
@@ -99,16 +104,38 @@ columnHasEmptySlot b i = find E $ map (!!i) b
 -- getEmptySlots b = 
 
 getColumn :: [[b]] -> Int -> [b]
-getColumn b i = map (!!i) b
+getColumn b i = map (!!i) b  
 
-getColumn2 (xs : xss) i = map (!!i) (head xs)
+getColumnM :: [[b]] -> Int -> Int -> [[b]]
+getColumnM (xs :xss) j i = if j <= i then map (!!i) (xs:xss) : getColumnM (xs:xss) (j+1) i else [xs]
+
+getColumns :: Board -> Int -> Int -> Columns
+getColumns (xs :xss) r i = if r > 0 then map (!!i) (xs :xss) : getColumns (xs : xss) (r -1) (i+1) else []
+
+-- replaceNth :: Int -> a -> Board -> [a]
+-- replaceNth _ _ [] = []
+-- replaceNth n newVal (xs:xss)
+--   | n == 0 = newVal:xss
+--   | otherwise = xs:replaceNth (n-1) newVal xss
+
+-- getColumn2 (xs : xss) i = map (!!i) (head xs)
 
 -- concatColumns = 
 
 doesColumnExist :: [Disc] -> Bool
 doesColumnExist c = find E c || find X c || find O c
 
+-- getMultipleColumns :: Board -> Int -> [[b]]
+-- getMultipleColumns :: [[b]] -> Int -> Int -> [[b]]
+-- getMultipleColumns (xs : xss) j i = case j <= i of
+--   True -> getColumn (xs : xss) j i : []
+--   False -> (xs : xss)
 
+  -- getMultipleColumns :: Board -> Int -> [[b]]
+-- getMultipleColumns :: [[b]] -> Int -> Int -> [[b]]
+-- getMultipleColumns (xs : xss) j i = case j <= i of
+--   True -> getColumn (xs : xss) j i : getMultipleColumns (xs : xss) (j + 1) i
+--   False -> (xs : xss)
 
 --                            IO FUNCTIONS                          --
 ------------------------------------------------------------------------
@@ -201,6 +228,7 @@ getUserInput s = do
 
 columnIsValid :: Disc -> Board -> IO Int
 columnIsValid p b = do
+  spacer
   putStr (showPlayerName p) >> putStr " choose input column: "
   i <- getUserInput ""
   if i < length (head b)
@@ -240,19 +268,36 @@ playGameP m r p b = do
         if p == X then playGameP m r p ri else playGameC m r p ri )
     checkWinner m r p i rb
 
+spacer :: IO ()
+spacer = do
+  putStrLn " "
+
+-- getAvailableColumns :: Board -> [Int]
+-- getAvailableColumns b =  
+--   -- check in board for each column: create a list of elements where index is Nth and combine
+--   -- them in a list. Then find the indexes of the elements lists where there is an E left.
 
 playGameC :: Int -> Int -> Disc -> Board -> IO ()
 playGameC m r p b = do
   threadDelay 1000000
-  number <- computerMove r
+  -- getAvailableColumns
+  number <- computerMove [0,1,2,3,4,5,6]
   putStr "Computer made move in column:" >> print number
   let rb = reverse b
   showBoard $ reverse $ updateBoard p number rb
   let rbr2 = reverse $ updateBoard p number rb
   playGameP m r (switchPlayer p) rbr2
 
-computerMove :: Int -> IO Int
-computerMove r = randomRIO (0,r-1)
+-- computerMove :: Int -> IO Int
+-- computerMove r = randomRIO (0,r-1)
+
+computerMove :: [a] -> IO a
+computerMove l = do
+  gen <- newStdGen
+  randomElement gen l
+
+test :: Int -> IO [Int]
+test n = sequence $ replicate n $ randomRIO (1,6::Int)
 
 initializeGame :: IO ()
 initializeGame = do
@@ -271,10 +316,29 @@ initializeGame = do
 
 main :: IO ()
 main = do
+  -- gen <- newStdGen
+  -- let o = pickOri gen [1,2,3]
+  
   initializeGame 
   return ()
+  
 
+randomElement :: RandomGen g => g -> [a] -> IO a
+randomElement rnd list = do
+  gen <- getStdGen
+  let (i, _) = randomR (0, length list - 1) gen
+  return $ list !! i
+ 
 
+-- pickOri :: RandomGen g => g -> [a] -> (a, g)
+-- pickOri rnd xs =
+--   let len = length xs - 1
+--       (i, g) = randomR (0, len) rnd
+--   in (xs !! i, g)
+-- randomTest :: IO ()
+-- randomTest = do
+--   let stdGen = mkStdGen 2021
+--   putStrLn $ fst $ runRand (fromList [("hello", 0.5), ("world", 0.1)]) stdGen
 
 -- findEmptySlotInColumn b i = elemIndex E $ getSelectedColumn b i
 
