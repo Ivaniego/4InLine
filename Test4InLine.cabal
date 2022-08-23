@@ -51,7 +51,6 @@ executable Test4InLine-exe
   other-modules:
       Four
       Functions
-      Monad
       Paths_Test4InLine
   hs-source-dirs:
       app
