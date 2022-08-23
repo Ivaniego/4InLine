@@ -50,7 +50,7 @@ data Game = Game
   } deriving Show
 
 
---                            PURE FUNCTIONS                         --
+--                            BOARD FUNCTIONS                         --
 ------------------------------------------------------------------------
 
 createBoard :: Size -> Size -> Board
@@ -83,35 +83,6 @@ updateBoard p i (xs : xss) = case xs ^? element i of
     Maybe.Just X  -> xs : updateBoard p i xss
     Maybe.Just O  -> xs : updateBoard p i xss
 
-
--- HELPER FUNCTIONS --
-----------------------
-filterE :: [Disc] -> [Disc]
-filterE y = filter (== E) y
-
-find :: Eq t => t -> [t] -> Bool
-find _ [] = False
-find n (x:xs)
-  | x == n = True
-  | otherwise = find n xs
-
-getAvailableColumnIndexes :: [[Disc]] -> Int -> [[Int]]
-getAvailableColumnIndexes (xs : xss) ci =
-  if ci < length xs then
-    case (columnHasEmptySlot (xs : xss) ci) of
-      True -> [ci] : getAvailableColumnIndexes (xs : xss) (ci + 1)
-      False -> getAvailableColumnIndexes (xs : xss) (ci + 1) else []
-
-columnHasEmptySlot :: [[Disc]] -> Int -> Bool
-columnHasEmptySlot b i = find E $ map (!!i) b
-
-getColumn :: [[b]] -> Int -> [b]
-getColumn b i = map (!!i) b
-
-
---                            IO FUNCTIONS                          --
-------------------------------------------------------------------------
-
 showBoard :: Board -> IO ()
 showBoard = mapM_ initRow
 
@@ -125,26 +96,33 @@ showDisc O = setSGR [SetColor Foreground  Vivid Red] >> putChar 'O' >> setSGR [R
 -- showDisc X =  putChar '🔴'
 -- showDisc O =  putChar '🔵'
 
-randomRsIO :: (Random a) => (a, a) -> IO [a]
-randomRsIO range = getStdGen >>= return . (randomRs range)
-
 initRow :: Row -> IO ()
 initRow []  = putStrLn "There are no rows inserted"
 initRow [x] = showDisc x >> putStr "\n"
 initRow (x : xs) = showDisc x  >> putChar ' ' >> initRow xs
 
-winColumnPlayer :: Disc -> Row -> Bool
-winColumnPlayer p [] = False
-winColumnPlayer p r = (filter (== p) (take 4 r)  == take 4 r) || winColumnPlayer p (tail r)
+columnHasEmptySlot :: [[Disc]] -> Int -> Bool
+columnHasEmptySlot b i = find E $ map (!!i) b
+
+getColumn :: [[b]] -> Int -> [b]
+getColumn b i = map (!!i) b
+
+getAvailableColumnIndexes :: [[Disc]] -> Int -> [[Int]]
+getAvailableColumnIndexes (xs : xss) ci =
+  if ci < length xs then
+    case (columnHasEmptySlot (xs : xss) ci) of
+      True -> [ci] : getAvailableColumnIndexes (xs : xss) (ci + 1)
+      False -> getAvailableColumnIndexes (xs : xss) (ci + 1) else []
+
+
+
+--                            PLAYER WIN LOGIC                       --
+------------------------------------------------------------------------
 
 winOnStraightLine :: Disc -> Row -> Bool
 winOnStraightLine p [] = False
 winOnStraightLine p [x,y,z] = False
 winOnStraightLine p r = (filter (== p) (take 4 r)  == take 4 r) || winOnStraightLine p (tail r)
-
--- winRowPlayer :: Disc -> Row -> Bool
--- winRowPlayer [] = False
--- winRowPlayer p = (filter (== p) (take 4 r)  == take 4 r) || winRowPlayer p (tail r)
 
 leftdiagonals :: Board-> Board
 leftdiagonals [] = []
@@ -186,6 +164,11 @@ isDraw :: Board -> Bool
 isDraw [] = True
 isDraw (b:bs) =  if filterE b  /= [] then False else isDraw bs
 
+
+
+--                            USER/COMPUTER INPUT                      --
+------------------------------------------------------------------------
+
 getUserInput :: String -> IO Int
 getUserInput s = do
   putStrLn s
@@ -194,21 +177,30 @@ getUserInput s = do
     Maybe.Just x -> return x
     Maybe.Nothing -> putStrLn "You must enter a valid number. Please try again. \n" >> getUserInput s
 
-columnIsValid :: Disc -> Board -> IO Int
-columnIsValid p b = do
+getColumnFromUser :: Disc -> Board -> IO Int
+getColumnFromUser p b = do
   spacer
   putStr (showPlayerName p) >> putStr " choose input column: "
   i <- getUserInput ""
   if i < length (head b)
     then return i
-    else putStrLn "You must enter a valid number. Please try again. \n" >> columnIsValid p b
+    else putStrLn "You must enter a valid number. Please try again. \n" >> getColumnFromUser p b
 
-putStrLnIo :: String -> StateT Game IO ()
-putStrLnIo = lift.putStrLn
+computerMove :: [a] -> IO a
+computerMove l = do
+  gen <- newStdGen
+  randomElement gen l
+
+randomElement :: RandomGen g => g -> [a] -> IO a
+randomElement rnd list = do
+    gen <- getStdGen
+    let (i, _) = randomR (0, length list - 1) gen
+    return $ list !! i
 
 
-    --GAME PLAY --
-----------------------------
+--                           GAMEPLAY                      --
+------------------------------------------------------------------------
+
 checkWinner :: Int -> Int -> Int -> Disc -> Int -> Board -> StateT Game IO ()
 checkWinner m c r p i rb = do
   game <- get
@@ -235,26 +227,19 @@ checkWinner m c r p i rb = do
      True -> do put (game  {_gPlayer1Score = player1Score +1})
                 lift $ putStrLn "Player 1 has won on diagonal!"
                 putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
-     False -> do put (game  {_gPlayer2Score = player2Score +1})
-                 lift $ putStrLn "Player 2 has won on diagonal!"
-                 putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score 
-                 else if isDraw (updateBoard p i rb)
-    then case p == X of
+     False -> do putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score 
+                 else if winDiagonalsPlayerTwo (updateBoard p i rb)
+    then case p == O of
      True -> do put (game  {_gPlayer1Score = player1Score +1})
-                lift $ putStrLn "The game ended in a draw"
+                lift $ putStrLn "Player 2 has won on diagonal!"
                 putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
-     False ->  putStrLnIo $ "ended"
-               else if m == 1 then playGameP m c r (switchPlayer p) (reverse $ updateBoard p i rb) else playGameC m c r (switchPlayer p) (reverse $ updateBoard p i rb)
-  -- if winOnStraightLine p (concat $ updateBoard p i rb)
-  --    then lift $ putStr $showPlayerName p ++ " has won the game on Row! \n"
---      else if p == X then put (game  {_gPlayer1Score = player1Score +1}) else put (game  {_gPlayer2Score = player2Score +1})
-
---   if winDiagonalsPlayerOne (updateBoard p i rb)
---     then lift $ putStr $ showPlayerName p ++ " has won the game Diagonally! \n" else put (game  {_gPlayer1Score = player1Score +1})
---   if winDiagonalsPlayerTwo (updateBoard p i rb)
---     then lift $ putStr $ showPlayerName p ++ " has won the game Diagonally! \n" else put (game  {_gPlayer2Score = player2Score +1})
---   if isDraw (updateBoard p i rb)
---     then lift $ putStr "The game is a draw"
+     False -> do putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score 
+                 else if isDraw (updateBoard p i rb) 
+    then do put (game {_gPlayer1Score = player1Score +1})
+            lift $ putStrLn "The game ended in a draw"
+            putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
+    else if m == 1 then playGameP m c r (switchPlayer p) (reverse $ updateBoard p i rb) 
+    else playGameC m c r (switchPlayer p) (reverse $ updateBoard p i rb)
 
 playGameP :: Int -> Int -> Int -> Disc -> Board -> StateT Game IO ()
 playGameP m c r p b = do
@@ -263,16 +248,12 @@ playGameP m c r p b = do
   let player2Score = _gPlayer2Score game
   putStrLnIo $ "Player 1 Score: " ++ show player1Score
   putStrLnIo $ "Player 2 Score: " ++ show player2Score
-  i <- lift $ columnIsValid p b
+  i <- lift $ getColumnFromUser p b
   lift $ threadDelay 2.0e5
   let rb = reverse b
   if columnHasEmptySlot rb i then lift $ showBoard (reverse $ updateBoard p i rb) else lift $ putStrLn "Column is full, please choose another column"
   let ri = reverse rb
   checkWinner m c r p i rb
-
-
-spacer :: IO ()
-spacer = do putStrLn " "
 
 playGameC :: Int -> Int -> Int -> Disc -> Board -> StateT Game IO ()
 playGameC m c r p b = do
@@ -290,17 +271,6 @@ playGameC m c r p b = do
   lift $ showBoard (reverse $ updateBoard p number rb)
   let rbr2 = reverse $ updateBoard p number rb
   playGameP m c r (switchPlayer p) rbr2
-
-computerMove :: [a] -> IO a
-computerMove l = do
-  gen <- newStdGen
-  randomElement gen l
-
-randomElement :: RandomGen g => g -> [a] -> IO a
-randomElement rnd list = do
-    gen <- getStdGen
-    let (i, _) = randomR (0, length list - 1) gen
-    return $ list !! i
 
 initializeGame :: IO ()
 initializeGame = do
@@ -322,3 +292,22 @@ main :: IO ()
 main = do
   initializeGame
   return ()
+
+
+--                           HELPER FUNCTIONS                      --
+------------------------------------------------------------------------
+
+filterE :: [Disc] -> [Disc]
+filterE y = filter (== E) y
+
+find :: Eq t => t -> [t] -> Bool
+find _ [] = False
+find n (x:xs)
+  | x == n = True
+  | otherwise = find n xs
+
+spacer :: IO ()
+spacer = do putStrLn " "
+    
+putStrLnIo :: String -> StateT Game IO ()
+putStrLnIo = lift.putStrLn
