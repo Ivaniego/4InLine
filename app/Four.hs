@@ -5,6 +5,7 @@
 {-# LANGUAGE NumDecimals #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use if" #-}
+{-# HLINT ignore "Redundant if" #-}
 
 module Four where
 
@@ -213,21 +214,47 @@ checkWinner m c r p i rb = do
   game <- get
   let player1Score  = _gPlayer1Score game
       player2Score  = _gPlayer2Score game
-  if winOnStraightLine  p $ getColumn (updateBoard p i rb) i
-    then lift $ putStr $ showPlayerName p ++ " has won the game on Column! \n"
-     else if p == X then put (game  {_gPlayer1Score = player1Score +1}) else put (game  {_gPlayer2Score = player2Score +1})
-  if winOnStraightLine p (concat $ updateBoard p i rb)
-    then lift $ putStr $showPlayerName p ++ " has won the game on Row! \n"
-     else if p == X then put (game  {_gPlayer1Score = player1Score +1}) else put (game  {_gPlayer2Score = player2Score +1})
-  if winDiagonalsPlayerOne (updateBoard p i rb)
-    then lift $ putStr $ showPlayerName p ++ " has won the game Diagonally! \n" else put (game  {_gPlayer1Score = player1Score +1})
-  if winDiagonalsPlayerTwo (updateBoard p i rb)
-    then lift $ putStr $ showPlayerName p ++ " has won the game Diagonally! \n" else put (game  {_gPlayer2Score = player2Score +1})
-  if isDraw (updateBoard p i rb)
-    then lift $ putStr "The game is a draw"
-     else if m == 1
-        then playGameP m c r (switchPlayer p) (reverse $ updateBoard p i rb)
-        else playGameC m c r (switchPlayer p) (reverse $ updateBoard p i rb)
+  if winOnStraightLine  p $ getColumn (updateBoard p i rb) i then case p == X of
+    True -> do put (game  {_gPlayer1Score = player1Score +1})
+               lift $ putStrLn "Player has won on column!"
+               putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
+    False -> do put (game  {_gPlayer2Score = player2Score +1})
+                putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
+                lift $ putStrLn "Player 2 has won on column!" 
+                else lift $ putStrLn $ ""
+
+  if winOnStraightLine p (concat $ updateBoard p i rb) then case p == X of
+    True -> do put (game  {_gPlayer1Score = player1Score +1})
+               lift $ putStrLn "Player 1 has won on column!"
+               putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
+    False -> do put (game  {_gPlayer2Score = player2Score +1})
+                lift $ putStrLn "Player 2 has won on column!"
+                putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
+                else if winDiagonalsPlayerOne (updateBoard p i rb)
+    then case p == X of
+     True -> do put (game  {_gPlayer1Score = player1Score +1})
+                lift $ putStrLn "Player 1 has won on diagonal!"
+                putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
+     False -> do put (game  {_gPlayer2Score = player2Score +1})
+                 lift $ putStrLn "Player 2 has won on diagonal!"
+                 putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score 
+                 else if isDraw (updateBoard p i rb)
+    then case p == X of
+     True -> do put (game  {_gPlayer1Score = player1Score +1})
+                lift $ putStrLn "The game ended in a draw"
+                putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
+     False ->  putStrLnIo $ "ended"
+               else if m == 1 then playGameP m c r (switchPlayer p) (reverse $ updateBoard p i rb) else playGameC m c r (switchPlayer p) (reverse $ updateBoard p i rb)
+  -- if winOnStraightLine p (concat $ updateBoard p i rb)
+  --    then lift $ putStr $showPlayerName p ++ " has won the game on Row! \n"
+--      else if p == X then put (game  {_gPlayer1Score = player1Score +1}) else put (game  {_gPlayer2Score = player2Score +1})
+
+--   if winDiagonalsPlayerOne (updateBoard p i rb)
+--     then lift $ putStr $ showPlayerName p ++ " has won the game Diagonally! \n" else put (game  {_gPlayer1Score = player1Score +1})
+--   if winDiagonalsPlayerTwo (updateBoard p i rb)
+--     then lift $ putStr $ showPlayerName p ++ " has won the game Diagonally! \n" else put (game  {_gPlayer2Score = player2Score +1})
+--   if isDraw (updateBoard p i rb)
+--     then lift $ putStr "The game is a draw"
 
 playGameP :: Int -> Int -> Int -> Disc -> Board -> StateT Game IO ()
 playGameP m c r p b = do
@@ -241,8 +268,8 @@ playGameP m c r p b = do
   let rb = reverse b
   if columnHasEmptySlot rb i then lift $ showBoard (reverse $ updateBoard p i rb) else lift $ putStrLn "Column is full, please choose another column"
   let ri = reverse rb
-  if p == X then playGameP m c r p ri else playGameC m c r p ri
   checkWinner m c r p i rb
+
 
 spacer :: IO ()
 spacer = do putStrLn " "
