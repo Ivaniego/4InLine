@@ -203,36 +203,43 @@ columnIsValid p b = do
 
     --GAME PLAY --
 ----------------------------
-
-checkWinner :: Int -> Int -> Int -> Disc -> Int -> Board -> IO ()
-checkWinner m c r p i rb = do
+checkWinner :: Int -> Int -> Disc -> Int -> Board -> StateT Game IO ()
+checkWinner m r p i rb = do
+   game <- get 
+   let player1Score = _gPlayer1Score game
+       player2Score = _gPlayer2Score game
   case winOnStraightLine  p $ getColumn (updateBoard p i rb) i of
-    True -> putStr (showPlayerName p) >> putStr " has won the game on Column! \n"
-    False -> case winOnStraightLine p (concat $ updateBoard p i rb) of
-      True -> putStr (showPlayerName p) >> putStr " has won the game on Row! \n"
+     True -> lift $ putStr (showPlayerName p) >>  lift $ putStr " has won the game on Column! \n" >> if p == X then put (game  {_gPlayer1Score = player1Score +1}) else put (game  {_gPlayer2Score = player2Score +1})
+     False -> case winOnStraightLine p (concat $ updateBoard p i rb) of
+      True ->  lift $ putStr (showPlayerName p) >>  lift $ putStr " has won the game on Row! \n" >> if p == X then put (game  {_gPlayer1Score = player1Score +1}) else put (game  {_gPlayer2Score = player2Score +1})
       False -> case winDiagonalsPlayerOne (updateBoard p i rb) of
-        True -> putStr (showPlayerName p) >> putStr " has won the game Diagonally! \n"
+        True ->  lift $ putStr (showPlayerName p) >>  lift $ putStr " has won the game Diagonally! \n" >> put (game  {_gPlayer1Score = player1Score +1})
         False -> case winDiagonalsPlayerTwo (updateBoard p i rb) of
-          True -> putStr (showPlayerName p) >> putStr " has won the game Diagonally! \n"
+          True ->  lift $ putStr (showPlayerName p) >>  lift $ putStr " has won the game Diagonally! \n" >> put (game  {_gPlayer2Score = player2Score +1})
           False -> case isDraw (updateBoard  p i rb) of
-            True -> putStr "The game is a draw"
-            False -> case m == 1 of
-              True -> playGameP m c r (switchPlayer p) $ reverse $ updateBoard p i rb
-              False -> playGameC m c r (switchPlayer p) $ reverse $ updateBoard p i rb
+            True ->  lift $ putStr "The game is a draw"
+            False -> case m == 1 of 
+              True -> playGameP m r (switchPlayer p) $ reverse $ updateBoard p i rb
+              False -> playGameC m r (switchPlayer p) $ reverse $ updateBoard p i rb
 
-playGameP :: Int -> Int -> Int -> Disc -> Board -> IO ()
-playGameP m c r p b = do
-    i <- columnIsValid p b
-    threadDelay 2.0e5
-    let rb = reverse b
-    if columnHasEmptySlot rb i then showBoard $ reverse $ updateBoard p i rb
+    playGameP :: Int -> Int -> Disc -> Board -> StateT Game IO ()
+    playGameP m r p b = do
+     game <- get 
+     let player1Score = _gPlayer1Score game
+         player2Score = _gPlayer2Score game
+     putStrlnIo $ "Player 1 Score: " ++ show player1Score 
+     putStrlnIo $ "Player 2 Score: " ++ show player2Score
+     i <- lift.columnIsValid p b
+       threadDelay 2.0e5
+     let rb = reverse b
+     if columnHasEmptySlot rb i then lift ( showBoard $ reverse $ updateBoard p i rb) 
       else (do
-        setSGR [SetColor Foreground Vivid Red]
-        putStrLn "Column is full, please choose another column"
-        setSGR [Reset]
-        let ri = reverse rb
-        if p == X then playGameP m c r p ri else playGameC m c r p ri )
-    checkWinner m c r p i rb
+              setSGR [SetColor Foreground Vivid Red]
+              putStrlnIo "Column is full, please choose another column"
+              setSGR [Reset]
+              let ri = reverse rb
+              if p == X then playGameP m r p ri else playGameC m r p ri ) 
+              checkWinner m r p i rb
 
 spacer :: IO ()
 spacer = do
@@ -240,13 +247,18 @@ spacer = do
 
 playGameC :: Int -> Int -> Int -> Disc -> Board -> IO ()
 playGameC m c r p b = do
+  game <- get 
+  let player1Score  = _gPlayer1Score game
+      computerScore = _gComputerScore game
+  putStrlnIo $ "Player 1 Score:" ++ show player1Score 
+  putStrlnIo $ "Computer Score:" ++ show computerScore
   threadDelay 1000000
   let availableIndexes = concat $ getAvailableColumnIndexes b 0
   print availableIndexes
-  number <- computerMove availableIndexes
-  putStr "Computer made move in column:" >> print number
+  number <- lift $ computerMove availableIndexes
+  lift $ putStr "Computer made move in column:" >> lift $ print number
   let rb = reverse b
-  showBoard $ reverse $ updateBoard p number rb
+  lift ( showBoard $ reverse $ updateBoard p number rb)
   let rbr2 = reverse $ updateBoard p number rb
   playGameP m c r (switchPlayer p) rbr2
 
@@ -263,18 +275,19 @@ randomElement rnd list = do
 
 initializeGame :: IO ()
 initializeGame = do
-  hSetEncoding stdout utf8
-  hSetBuffering stdin NoBuffering
-  clearScreen
-  setCursorPosition 4 25
-  setSGR [SetColor Foreground  Vivid Blue]
-  putStrLn "WELCOME TO 4 IN A ROW"
-  setSGR [Reset]
-  m <- getUserInput $ "Choose a game mode: \n"++ "1 -> Player vs Player \n" ++ "2 -> Player vs Computer"
-  c <- getUserInput $ "Choose a board size: \n" ++ "Rows: "
-  r <- getUserInput "Columns: "
-  showBoard $ createBoard c r
-  playGameP m c r X $ createBoard c r
+    hSetEncoding stdout utf8
+    hSetBuffering stdin NoBuffering
+    clearScreen
+    setCursorPosition 4 25
+    setSGR [SetColor Foreground  Vivid Blue]
+    putStrLn "WELCOME TO 4 IN A ROW"
+    setSGR [Reset]
+    m <- getUserInput $ "Choose a game mode: \n"++ "1 -> Player vs Player \n" ++ "2 -> Player vs Computer"
+    c <- getUserInput $ "Choose a board size column: \n" ++ "Columns: "
+    r <- getUserInput "Rows: "
+    showBoard $ createBoard c r
+    evalStateT (playGameP m r X) $ Game {_gplayer1Score = 0, 
+ _gPlayer2Score = 0 ,_gcomputerScore = 0} $ createBoard c r
 
 main :: IO ()
 main = do
