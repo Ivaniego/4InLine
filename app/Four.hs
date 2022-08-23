@@ -6,6 +6,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use if" #-}
 {-# HLINT ignore "Redundant if" #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 module Four where
 
@@ -28,7 +29,6 @@ import Text.Show.Unicode ()
 import Control.Concurrent ( threadDelay )
 import System.Console.ANSI ( setCursorPosition, clearScreen, setSGR, SGR (SetColor, Reset), ConsoleLayer (Background, Foreground), ColorIntensity (Vivid, Dull), Color (Blue, Red, Yellow) )
 import Text.Read (readMaybe)
--- import Data.Random.Extras
 import Control.Monad.Trans ( MonadTrans(lift) )
 import Control.Monad.State
 import Control.Monad.Trans
@@ -209,45 +209,43 @@ checkWinner m c r p i rb = do
   if winOnStraightLine  p $ getColumn (updateBoard p i rb) i then case p == X of
     True -> do put (game  {_gPlayer1Score = player1Score +1})
                lift $ putStrLn "Player has won on column!"
-               putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
+               lift $ showScore player1Score player2Score
     False -> do put (game  {_gPlayer2Score = player2Score +1})
-                putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
                 lift $ putStrLn "Player 2 has won on column!" 
-                else lift $ putStrLn $ ""
-
-  if winOnStraightLine p (concat $ updateBoard p i rb) then case p == X of
+                lift $ showScore player1Score player2Score
+                else if winOnStraightLine p (concat $ updateBoard p i rb) then case p == X of
     True -> do put (game  {_gPlayer1Score = player1Score +1})
                lift $ putStrLn "Player 1 has won on column!"
-               putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
+               lift $ showScore player1Score player2Score
     False -> do put (game  {_gPlayer2Score = player2Score +1})
-                lift $ putStrLn "Player 2 has won on column!"
-                putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
+                lift $ putStrLn "Player 2 has won on column!" 
+                lift $ showScore player1Score player2Score
                 else if winDiagonalsPlayerOne (updateBoard p i rb)
     then case p == X of
      True -> do put (game  {_gPlayer1Score = player1Score +1})
                 lift $ putStrLn "Player 1 has won on diagonal!"
-                putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
-     False -> do putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score 
+     False -> do lift $showScore player1Score player2Score
                  else if winDiagonalsPlayerTwo (updateBoard p i rb)
     then case p == O of
      True -> do put (game  {_gPlayer1Score = player1Score +1})
                 lift $ putStrLn "Player 2 has won on diagonal!"
-                putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
-     False -> do putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score 
+     False -> do do lift $ showScore player1Score player2Score
                  else if isDraw (updateBoard p i rb) 
     then do put (game {_gPlayer1Score = player1Score +1})
             lift $ putStrLn "The game ended in a draw"
-            putStrLnIo $ "Player 1 Score: " ++ show player1Score ++ "\n" ++ "Player 2 Score: " ++ show player2Score
-    else if m == 1 then playGameP m c r (switchPlayer p) (reverse $ updateBoard p i rb) 
+    else if m == 1 then do playGameP m c r (switchPlayer p) (reverse $ updateBoard p i rb) 
     else playGameC m c r (switchPlayer p) (reverse $ updateBoard p i rb)
+
+showScore :: Int -> Int -> IO()
+showScore ps1 ps2 = do putStrLn $ "Player 1 Score: " ++ show ps1
+                       putStrLn $ "Player 2 Score: " ++ show ps2
 
 playGameP :: Int -> Int -> Int -> Disc -> Board -> StateT Game IO ()
 playGameP m c r p b = do
   game <- get
   let player1Score = _gPlayer1Score game
   let player2Score = _gPlayer2Score game
-  putStrLnIo $ "Player 1 Score: " ++ show player1Score
-  putStrLnIo $ "Player 2 Score: " ++ show player2Score
+  lift $ showScore player1Score player2Score
   i <- lift $ getColumnFromUser p b
   lift $ threadDelay 2.0e5
   let rb = reverse b
