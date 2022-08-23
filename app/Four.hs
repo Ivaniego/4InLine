@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE UnicodeSyntax #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NumDecimals #-}
@@ -28,6 +29,8 @@ import System.Console.ANSI ( setCursorPosition, clearScreen, setSGR, SGR (SetCol
 import Text.Read (readMaybe)
 -- import Data.Random.Extras
 import Control.Monad.Trans ( MonadTrans(lift) )
+import Control.Monad.State
+import Control.Monad.Trans
 
 
 --                             TYPES/DATA                            --
@@ -40,10 +43,9 @@ type Board = [[Disc]]
 type Columns = [[Disc]]
 data Maybe a = Nothing | Just a
 data Game = Game
-  { _gPlayerScore   :: Int
+  { _gPlayer1Score  :: Int
+  , _gPlayer2Score  :: Int
   , _gComputerScore :: Int
-  , _gPlayerOneBalance :: Double
-  , _gPlayerTwoBalance :: Double
   } deriving Show
 
 
@@ -199,7 +201,9 @@ columnIsValid p b = do
   if i < length (head b)
     then return i
     else putStrLn "You must enter a valid number. Please try again. \n" >> columnIsValid p b
-
+  
+putStrLnIo :: String -> StateT Game IO ()
+putStrlnIo = lift.putStrln 
 
     --GAME PLAY --
 ----------------------------
