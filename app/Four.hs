@@ -285,14 +285,21 @@ initializeGame = do
     c <- getUserInput $ "Choose a board size column: \n" ++ "Columns: "
     r <- getUserInput "Rows: "
     showBoard $ createBoard c r
-    evalStateT (playGameP m c r X (createBoard c r)) $ Game {_gPlayer1Score = 0,
- _gPlayer2Score = 0 ,_gComputerScore = 0}
+    newGame <- initGame
+    evalStateT (playGameP m c r X (createBoard c r)) $ newGame
 
 main :: IO ()
 main = do
   initializeGame
   return ()
 
+initGame :: MonadIO m => m Game
+initGame = do
+  return $ Game
+    { _gPlayer1Score   = 0
+    , _gPlayer2Score = 0
+    , _gComputerScore = 0
+      }
 
 --                           HELPER FUNCTIONS                      --
 ------------------------------------------------------------------------
