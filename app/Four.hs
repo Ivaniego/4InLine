@@ -211,57 +211,57 @@ checkWinner m c r s p i rb = do
   let player1Score  = _gPlayer1Score game
       player2Score  = _gPlayer2Score game
       gameSets      = _gPlayAmountOfSets game
-
+ 
   if winOnStraightLine  p $ getColumn (updateBoard p i rb) i then case p == X of
     True -> do
                lift $ putStrLn "Player 1 has won on column!"
+               if (gameSets+1) >= s then lift $ putStrLn "THE GAME HAS ENDED!" else do
                newGame <- initGame
                lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score + 1,
                _gPlayer2Score = player2Score ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
     False -> do put (game  {_gPlayer2Score = player2Score +1})
                 lift $ putStrLn "Player 2 has won on column!"
+                if (gameSets+1) >= s then lift $ putStrLn "THE GAME HAS ENDED!" else do
                 newGame <- initGame
                 lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score,
                 _gPlayer2Score = player2Score + 1 ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
-                else lift $ putStrLn ""
-  if winOnStraightLine p (concat $ updateBoard p i rb) then case p == X of
+                else if winOnStraightLine p (concat $ updateBoard p i rb) then case p == X of
     True -> do
                lift $ putStrLn "Player 1 has won on column!"
+               if (gameSets+1) >= s then lift $ putStrLn "THE GAME HAS ENDED!" else do
                newGame <- initGame
                lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score + 1,
                _gPlayer2Score = player2Score ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
     False -> do
                 lift $ putStrLn "Player 2 has won on column!"
+                if (gameSets+1) >= s then lift $ putStrLn "THE GAME HAS ENDED!" else do
                 newGame <- initGame
                 lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score,
                 _gPlayer2Score = player2Score + 1 ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
-                else lift $ putStrLn ""
-  if winDiagonalsPlayerOne (updateBoard p i rb)
+                else if winDiagonalsPlayerOne (updateBoard p i rb)
     then case p == X of
      True -> do
                 lift $ putStrLn "Player 1 has won on diagonal!"
+                if (gameSets+1) >= s then lift $ putStrLn "THE GAME HAS ENDED!" else do
                 newGame <- initGame
                 lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score + 1,
                 _gPlayer2Score = player2Score ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
      False -> do lift $showScore player1Score player2Score
-                else lift $ putStrLn ""
-  if winDiagonalsPlayerTwo (updateBoard p i rb)
+                else if winDiagonalsPlayerTwo (updateBoard p i rb)
     then case p == O of
      True -> do
                 lift $ putStrLn "Player 2 has won on diagonal!"
+                if (gameSets+1) >= s then lift $ putStrLn "THE GAME HAS ENDED!" else do
                 newGame <- initGame
                 lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score,
                 _gPlayer2Score = player2Score + 1 ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
-     False -> do do lift $ showScore player1Score player2Score
-                 else lift $ putStrLn ""
-  if isDraw (updateBoard p i rb)
-    then do 
-            lift $ putStrLn "The game ended in a draw" else lift $ putStrLn ""
-   
-  if gameSets < s && m == 1 then playGameP m c r s (switchPlayer p) (reverse $ updateBoard p i rb) 
+     False -> do lift $ showScore player1Score player2Score
+                 else if isDraw (updateBoard p i rb)
+    then do
+            lift $ putStrLn "The game ended in a draw" else if gameSets < s && m == 1 then playGameP m c r s (switchPlayer p) (reverse $ updateBoard p i rb)
   else if gameSets < s && m == 2 then playGameC m c r s (switchPlayer p) (reverse $ updateBoard p i rb)
   else lift $ putStrLn ""
-            
+
   -- if m == 1 then do playGameP m c r s (switchPlayer p) (reverse $ updateBoard p i rb)
   --   else playGameC m c r s (switchPlayer p) (reverse $ updateBoard p i rb)
 
@@ -276,17 +276,15 @@ playGameP m c r s p b = do
   let player2Score = _gPlayer2Score game
   let gameSets     = _gPlayAmountOfSets game
   putStrLnIo $ "Player 1 Score: " ++ show player1Score
-  putStrLnIo $ "Player 2 Score: " ++ show player2Score 
-  case gameSets == s of
-    True -> do lift $ putStrLn "The game has ended"
-    False -> do lift $ print gameSets
-                lift $ print s
-                i <- lift $ getColumnFromUser p b
-                lift $ threadDelay 2.0e5
-                let rb = reverse b
-                if columnHasEmptySlot rb i then lift $ showBoard (reverse $ updateBoard p i rb) else lift $ putStrLn "Column is full, please choose another column"
-                let ri = reverse rb
-                checkWinner m c r s p i rb
+  putStrLnIo $ "Player 2 Score: " ++ show player2Score
+  lift $ print gameSets
+  lift $ print s
+  i <- lift $ getColumnFromUser p b
+  lift $ threadDelay 2.0e5
+  let rb = reverse b
+  if columnHasEmptySlot rb i then lift $ showBoard (reverse $ updateBoard p i rb) else lift $ putStrLn "Column is full, please choose another column"
+  let ri = reverse rb
+  checkWinner m c r s p i rb
 
 playGameC :: Int -> Int -> Int -> Int -> Disc -> Board -> StateT Game IO ()
 playGameC m c r s p b = do
