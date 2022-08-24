@@ -7,6 +7,7 @@
 {-# HLINT ignore "Use if" #-}
 {-# HLINT ignore "Redundant if" #-}
 {-# HLINT ignore "Use newtype instead of data" #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Four where
 
@@ -22,7 +23,7 @@ import qualified Data.Sequence as Seq
 import System.IO (hSetBuffering, stdin, BufferMode (NoBuffering), hSetEncoding, utf8, stdout)
 import System.Random (getStdGen, newStdGen, Random (randomRs, randomR), randomRIO, randomIO, mkStdGen, RandomGen, StdGen)
 import Control.Monad.State (lift, StateT)
-import Control.Lens ( (^?), element, (^.))
+import Control.Lens ( (^?), element, (^.), use)
 import Control.Lens.Tuple ()
 import Unicode.Char ()
 import Text.Show.Unicode ()
@@ -44,9 +45,10 @@ type Board = [[Disc]]
 type Columns = [[Disc]]
 data Maybe a = Nothing | Just a
 data Game = Game
-  { _gPlayer1Score  :: Int
-  , _gPlayer2Score  :: Int
-  , _gComputerScore :: Int
+  { _gPlayer1Score    :: Int
+  , _gPlayer2Score    :: Int
+  , _gComputerScore   :: Int
+  ,_gPlayAmountOfSets :: Int
   } deriving Show
 
 
@@ -180,10 +182,12 @@ getUserInput s = do
 getColumnFromUser :: Disc -> Board -> IO Int
 getColumnFromUser p b = do
   spacer
-  putStr (showPlayerName p) >> putStr " choose input column: "
+  let availableIndexes = concat $ getAvailableColumnIndexes b 0
+  let indexesUserFriendly = map (+1) availableIndexes
+  putStr (showPlayerName p) >> putStr " choose input column from range: " >> print indexesUserFriendly
   i <- getUserInput ""
-  if i < length (head b)
-    then return i
+  if i < (length (head b) + 1)
+    then return (i - 1)
     else putStrLn "You must enter a valid number. Please try again. \n" >> getColumnFromUser p b
 
 computerMove :: [a] -> IO a
@@ -201,74 +205,106 @@ randomElement rnd list = do
 --                           GAMEPLAY                      --
 ------------------------------------------------------------------------
 
-checkWinner :: Int -> Int -> Int -> Disc -> Int -> Board -> StateT Game IO ()
-checkWinner m c r p i rb = do
+checkWinner :: Int -> Int -> Int -> Int -> Disc -> Int -> Board -> StateT Game IO ()
+checkWinner m c r s p i rb = do
   game <- get
   let player1Score  = _gPlayer1Score game
       player2Score  = _gPlayer2Score game
+      gameSets      = _gPlayAmountOfSets game
+
   if winOnStraightLine  p $ getColumn (updateBoard p i rb) i then case p == X of
-    True -> do put (game  {_gPlayer1Score = player1Score +1})
-               lift $ putStrLn "Player has won on column!"
-               lift $ showScore player1Score player2Score
-    False -> do put (game  {_gPlayer2Score = player2Score +1})
-                lift $ putStrLn "Player 2 has won on column!" 
-                lift $ showScore player1Score player2Score
-                else if winOnStraightLine p (concat $ updateBoard p i rb) then case p == X of
-    True -> do put (game  {_gPlayer1Score = player1Score +1})
+    True -> do
                lift $ putStrLn "Player 1 has won on column!"
-               lift $ showScore player1Score player2Score
+               newGame <- initGame
+               lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score + 1,
+               _gPlayer2Score = player2Score ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
     False -> do put (game  {_gPlayer2Score = player2Score +1})
-                lift $ putStrLn "Player 2 has won on column!" 
-                lift $ showScore player1Score player2Score
-                else if winDiagonalsPlayerOne (updateBoard p i rb)
+                lift $ putStrLn "Player 2 has won on column!"
+                newGame <- initGame
+                lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score,
+                _gPlayer2Score = player2Score + 1 ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
+                else lift $ putStrLn ""
+  if winOnStraightLine p (concat $ updateBoard p i rb) then case p == X of
+    True -> do
+               lift $ putStrLn "Player 1 has won on column!"
+               newGame <- initGame
+               lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score + 1,
+               _gPlayer2Score = player2Score ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
+    False -> do
+                lift $ putStrLn "Player 2 has won on column!"
+                newGame <- initGame
+                lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score,
+                _gPlayer2Score = player2Score + 1 ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
+                else lift $ putStrLn ""
+  if winDiagonalsPlayerOne (updateBoard p i rb)
     then case p == X of
-     True -> do put (game  {_gPlayer1Score = player1Score +1})
+     True -> do
                 lift $ putStrLn "Player 1 has won on diagonal!"
+                newGame <- initGame
+                lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score + 1,
+                _gPlayer2Score = player2Score ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
      False -> do lift $showScore player1Score player2Score
-                 else if winDiagonalsPlayerTwo (updateBoard p i rb)
+                else lift $ putStrLn ""
+  if winDiagonalsPlayerTwo (updateBoard p i rb)
     then case p == O of
-     True -> do put (game  {_gPlayer1Score = player1Score +1})
+     True -> do
                 lift $ putStrLn "Player 2 has won on diagonal!"
+                newGame <- initGame
+                lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score,
+                _gPlayer2Score = player2Score + 1 ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
      False -> do do lift $ showScore player1Score player2Score
-                 else if isDraw (updateBoard p i rb) 
-    then do put (game {_gPlayer1Score = player1Score +1})
-            lift $ putStrLn "The game ended in a draw"
-    else if m == 1 then do playGameP m c r (switchPlayer p) (reverse $ updateBoard p i rb) 
-    else playGameC m c r (switchPlayer p) (reverse $ updateBoard p i rb)
+                 else lift $ putStrLn ""
+  if isDraw (updateBoard p i rb)
+    then do 
+            lift $ putStrLn "The game ended in a draw" else lift $ putStrLn ""
+   
+  if gameSets < s && m == 1 then playGameP m c r s (switchPlayer p) (reverse $ updateBoard p i rb) 
+  else if gameSets < s && m == 2 then playGameC m c r s (switchPlayer p) (reverse $ updateBoard p i rb)
+  else lift $ putStrLn ""
+            
+  -- if m == 1 then do playGameP m c r s (switchPlayer p) (reverse $ updateBoard p i rb)
+  --   else playGameC m c r s (switchPlayer p) (reverse $ updateBoard p i rb)
 
 showScore :: Int -> Int -> IO()
 showScore ps1 ps2 = do putStrLn $ "Player 1 Score: " ++ show ps1
                        putStrLn $ "Player 2 Score: " ++ show ps2
 
-playGameP :: Int -> Int -> Int -> Disc -> Board -> StateT Game IO ()
-playGameP m c r p b = do
+playGameP :: Int -> Int -> Int -> Int -> Disc -> Board -> StateT Game IO ()
+playGameP m c r s p b = do
   game <- get
   let player1Score = _gPlayer1Score game
   let player2Score = _gPlayer2Score game
-  lift $ showScore player1Score player2Score
-  i <- lift $ getColumnFromUser p b
-  lift $ threadDelay 2.0e5
-  let rb = reverse b
-  if columnHasEmptySlot rb i then lift $ showBoard (reverse $ updateBoard p i rb) else lift $ putStrLn "Column is full, please choose another column"
-  let ri = reverse rb
-  checkWinner m c r p i rb
+  let gameSets     = _gPlayAmountOfSets game
+  putStrLnIo $ "Player 1 Score: " ++ show player1Score
+  putStrLnIo $ "Player 2 Score: " ++ show player2Score 
+  case gameSets == s of
+    True -> do lift $ putStrLn "The game has ended"
+    False -> do lift $ print gameSets
+                lift $ print s
+                i <- lift $ getColumnFromUser p b
+                lift $ threadDelay 2.0e5
+                let rb = reverse b
+                if columnHasEmptySlot rb i then lift $ showBoard (reverse $ updateBoard p i rb) else lift $ putStrLn "Column is full, please choose another column"
+                let ri = reverse rb
+                checkWinner m c r s p i rb
 
-playGameC :: Int -> Int -> Int -> Disc -> Board -> StateT Game IO ()
-playGameC m c r p b = do
+playGameC :: Int -> Int -> Int -> Int -> Disc -> Board -> StateT Game IO ()
+playGameC m c r s p b = do
   game <- get
   let player1Score  = _gPlayer1Score game
       computerScore = _gComputerScore game
+      gameSets      = _gPlayAmountOfSets game
   lift $ putStrLn $ "Player 1 Score:" ++ show player1Score
   lift $ putStrLn $ "Computer Score:" ++ show computerScore
   lift $ threadDelay 1000000
   let availableIndexes = concat $ getAvailableColumnIndexes b 0
-  lift $ print availableIndexes
+  lift $ spacer
   number <- lift $ computerMove availableIndexes
-  lift $ putStr "Computer made move in column:" >> print number
+  lift $ putStr "Computer made move in column:" >> print (number + 1)
   let rb = reverse b
   lift $ showBoard (reverse $ updateBoard p number rb)
   let rbr2 = reverse $ updateBoard p number rb
-  playGameP m c r (switchPlayer p) rbr2
+  playGameP m c r s (switchPlayer p) rbr2
 
 initializeGame :: IO ()
 initializeGame = do
@@ -282,9 +318,10 @@ initializeGame = do
     m <- getUserInput $ "Choose a game mode: \n"++ "1 -> Player vs Player \n" ++ "2 -> Player vs Computer"
     c <- getUserInput $ "Choose a board size column: \n" ++ "Columns: "
     r <- getUserInput "Rows: "
+    s <- getUserInput "How many rounds do you want to play? : [1-5] "
     showBoard $ createBoard c r
     newGame <- initGame
-    evalStateT (playGameP m c r X (createBoard c r)) $ newGame
+    evalStateT (playGameP m c r s X (createBoard c r)) $ newGame
 
 main :: IO ()
 main = do
@@ -294,9 +331,10 @@ main = do
 initGame :: MonadIO m => m Game
 initGame = do
   return $ Game
-    { _gPlayer1Score   = 0
-    , _gPlayer2Score = 0
-    , _gComputerScore = 0
+    { _gPlayer1Score     = 0
+    , _gPlayer2Score     = 0
+    , _gComputerScore    = 0
+    , _gPlayAmountOfSets = 0
       }
 
 --                           HELPER FUNCTIONS                      --
@@ -313,6 +351,6 @@ find n (x:xs)
 
 spacer :: IO ()
 spacer = do putStrLn " "
-    
+
 putStrLnIo :: String -> StateT Game IO ()
 putStrLnIo = lift.putStrLn
