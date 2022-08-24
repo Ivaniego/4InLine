@@ -227,13 +227,13 @@ checkWinner m c r s p i rb = do
                 _gPlayer2Score = player2Score + 1 ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
                 else if winOnStraightLine p (concat $ updateBoard p i rb) then case p == X of
     True -> do
-               lift $ putStrLn "Player 1 has won on column!"
+               lift $ putStrLn "Player 1 has won on row!"
                if (gameSets+1) >= s then lift $ putStrLn "THE GAME HAS ENDED!" else do
                newGame <- initGame
                lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score + 1,
                _gPlayer2Score = player2Score ,_gComputerScore = 0, _gPlayAmountOfSets = gameSets + 1}
     False -> do
-                lift $ putStrLn "Player 2 has won on column!"
+                lift $ putStrLn "Player 2 has won on row!"
                 if (gameSets+1) >= s then lift $ putStrLn "THE GAME HAS ENDED!" else do
                 newGame <- initGame
                 lift $ evalStateT (playGameP m c r s X (createBoard c r)) $ newGame  {_gPlayer1Score = player1Score,
