@@ -277,8 +277,6 @@ playGameP m c r s p b = do
   let gameSets     = _gPlayAmountOfSets game
   putStrLnIo $ "Player 1 Score: " ++ show player1Score
   putStrLnIo $ "Player 2 Score: " ++ show player2Score
-  lift $ print gameSets
-  lift $ print s
   i <- lift $ getColumnFromUser p b
   lift $ threadDelay 2.0e5
   let rb = reverse b
